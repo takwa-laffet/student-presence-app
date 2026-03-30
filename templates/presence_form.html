@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block title %}Modifier presence{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm mx-auto" style="max-width: 760px;">
+    <div class="card-header"><h5 class="mb-0">Modifier la presence #{{ item.id }}</h5></div>
+    <div class="card-body">
+        <form method="post" novalidate>
+            {{ form.hidden_tag() }}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    {{ form.eleve_id.label(class='form-label') }}
+                    {{ form.eleve_id(class='form-select') }}
+                </div>
+                <div class="col-md-6">
+                    {{ form.formation_id.label(class='form-label') }}
+                    {{ form.formation_id(class='form-select') }}
+                    <small id="formation-session-hint" class="form-text text-muted"></small>
+                </div>
+                <div class="col-md-4">
+                    {{ form.date.label(class='form-label') }}
+                    {{ form.date(class='form-control') }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.heure_debut.label(class='form-label') }}
+                    {{ form.heure_debut(class='form-control') }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.heure_fin.label(class='form-label') }}
+                    {{ form.heure_fin(class='form-control') }}
+                    <div class="d-flex gap-2 mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-duration-2h">+2h</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-duration-4h">+4h</button>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-primary" type="submit">Enregistrer</button>
+                <a class="btn btn-outline-secondary" href="{{ url_for('presence') }}">Retour</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const startInput = document.getElementById("heure_debut");
+    const endInput = document.getElementById("heure_fin");
+    const btn2h = document.getElementById("btn-duration-2h");
+    const btn4h = document.getElementById("btn-duration-4h");
+    const formationSelect = document.getElementById("formation_id");
+    const formationHint = document.getElementById("formation-session-hint");
+
+    function addHoursToTime(timeValue, hoursToAdd) {
+        if (!timeValue) {
+            return "";
+        }
+        const parts = timeValue.split(":");
+        if (parts.length < 2) {
+            return "";
+        }
+        const date = new Date();
+        date.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
+        date.setHours(date.getHours() + Number(hoursToAdd || 0));
+
+        const hh = String(date.getHours()).padStart(2, "0");
+        const mm = String(date.getMinutes()).padStart(2, "0");
+        return `${hh}:${mm}`;
+    }
+
+    function applyDuration(hours) {
+        if (!startInput || !endInput || !startInput.value) {
+            return;
+        }
+        const calculated = addHoursToTime(startInput.value, hours);
+        if (calculated) {
+            endInput.value = calculated;
+        }
+    }
+
+    btn2h?.addEventListener("click", () => applyDuration(2));
+    btn4h?.addEventListener("click", () => applyDuration(4));
+
+    // Auto-fill end time when formation changes
+    formationSelect?.addEventListener("change", async (e) => {
+        const formationId = e.target.value;
+        if (!formationId || !startInput?.value) {
+            if (formationHint) formationHint.textContent = "";
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/formation/eleves/${formationId}`);
+            const data = await response.json();
+            const sessionDuration = data.session_duration_hours || 2;
+            
+            // Update hint
+            if (formationHint) {
+                formationHint.textContent = `Seance habituelle: ${sessionDuration}h`;
+            }
+            
+            // Auto-calculate end time
+            const calculated = addHoursToTime(startInput.value, sessionDuration);
+            if (calculated) {
+                endInput.value = calculated;
+            }
+        } catch (error) {
+            console.error("Erreur:", error);
+        }
+    });
+</script>
+{% endblock %}

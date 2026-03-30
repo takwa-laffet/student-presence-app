@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card card-stat h-100">
+            <div class="card-body">
+                <h5 class="card-title">Eleves</h5>
+                <p class="display-6 mb-0">{{ eleves_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-stat h-100">
+            <div class="card-body">
+                <h5 class="card-title">Formations</h5>
+                <p class="display-6 mb-0">{{ formations_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-stat h-100">
+            <div class="card-body">
+                <h5 class="card-title">Presences</h5>
+                <p class="display-6 mb-0">{{ presences_count }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header"><h5 class="mb-0">Actions rapides</h5></div>
+    <div class="card-body">
+        <a class="btn btn-primary w-100" href="{{ url_for('presence') }}">
+            Ajouter une presence (Checklist rapide par formation)
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="mb-0">Heures hebdomadaires par eleve</h5>
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-auto">
+                <input class="form-control" type="number" min="1" max="53" name="week" value="{{ selected_week }}" required>
+            </div>
+            <div class="col-auto">
+                <input class="form-control" type="number" min="2020" max="2100" name="year" value="{{ selected_year }}" required>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-primary">Afficher</button>
+            </div>
+        </form>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">Semaine {{ selected_week }} ({{ start_of_week.strftime('%d/%m/%Y') }} - {{ end_of_week.strftime('%d/%m/%Y') }})</p>
+        <div class="table-responsive">
+            <table class="table table-striped align-middle mb-0">
+                <thead>
+                <tr>
+                    <th>Eleve</th>
+                    <th>Total heures</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for eleve_name, total in totals %}
+                    <tr>
+                        <td>{{ eleve_name }}</td>
+                        <td>{{ '%.2f'|format(total) }} h</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="2" class="text-center text-muted">Aucune presence sur cette semaine.</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

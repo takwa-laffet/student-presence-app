@@ -1,0 +1,401 @@
+{% extends 'base.html' %}
+
+{% block title %}Presences{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header"><h5 class="mb-0">Ajouter une presence</h5></div>
+            <div class="card-body">
+                {% if not eleves or not form.formation_id.choices %}
+                    <p class="text-muted mb-0">Ajoutez au moins un eleve et une formation avant de saisir une presence.</p>
+                {% else %}
+                    <form class="d-none">{{ form.hidden_tag() }}</form>
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Checklist rapide par formation</strong></label>
+                        <select class="form-select" id="checklist-formation-select">
+                            <option value="">-- Choisissez une formation --</option>
+                            {% for f in formations %}
+                                <option value="{{ f.id }}">{{ f.nom_formation }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div id="checklist-container" class="mb-3">
+                        <p class="small text-muted mb-2">Cochez les etudiants presents, puis enregistrez en un clic.</p>
+                        <div class="row g-2 mb-2">
+                            <div class="col-12">
+                                <label class="form-label small mb-1">Date</label>
+                                <input type="date" class="form-control form-control-sm" id="checklist-date">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small mb-1">Heure debut</label>
+                                <input type="time" class="form-control form-control-sm" id="checklist-start" value="09:00">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small mb-1">Heure fin</label>
+                                <input type="time" class="form-control form-control-sm" id="checklist-end" value="12:00">
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mb-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-duration-2h">Seance 2h</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-duration-4h">Seance 4h</button>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center small mb-2">
+                            <span id="checklist-count" class="text-muted">0 selectionne(s) / 0</span>
+                            <span id="checklist-date-label" class="text-muted">Date appliquee: aujourd'hui</span>
+                        </div>
+                        <div id="checklist-feedback" class="alert py-2 px-3 mb-2 d-none" role="alert"></div>
+                        <div class="d-flex gap-2 mb-2">
+                            <button type="button" class="btn btn-sm btn-success" id="btn-all-present">Tout cocher</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-all-absent">Tout decocher</button>
+                        </div>
+                        <div id="eleves-checklist" class="list-group" style="max-height: 300px; overflow-y: auto;">
+                            <div class="list-group-item text-muted">Selectionnez d'abord une formation.</div>
+                        </div>
+                        <button type="button" class="btn btn-primary w-100 mt-2" id="btn-save-checklist">Enregistrer la checklist</button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                <h5 class="mb-0">Liste des presences</h5>
+                <form method="get" class="row g-2 align-items-center">
+                    <div class="col-auto">
+                        <select class="form-select form-select-sm" name="eleve_id">
+                            <option value="">Tous les eleves</option>
+                            {% for e in eleves %}
+                                <option value="{{ e.id }}" {% if filter_eleve_id == e.id %}selected{% endif %}>{{ e.nom_complet }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <input class="form-control form-control-sm" type="date" name="date" value="{{ filter_date|date_input }}">
+                    </div>
+                    <div class="col-auto d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-primary" type="submit">Filtrer</button>
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('presence') }}">Reset</a>
+                    </div>
+                </form>
+            </div>
+
+            {% if filter_date %}
+                <div class="card-body border-bottom pb-2">
+                    <h6 class="mb-2">Etat de presence le {{ filter_date.strftime('%d/%m/%Y') }}</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for status in attendance_statuses %}
+                            <span class="badge {% if status.status == 'Present' %}text-bg-success{% else %}text-bg-danger{% endif %}">
+                                {{ status.eleve.nom_complet }} - {{ status.status }}
+                            </span>
+                        {% else %}
+                            <span class="text-muted small">Aucun eleve trouve pour ce filtre.</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Eleve</th>
+                            <th>Formation</th>
+                            <th>Date</th>
+                            <th>Heure</th>
+                            <th>Duree</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for p in presences %}
+                            <tr>
+                                <td>{{ p.id }}</td>
+                                <td>{{ p.eleve.nom_complet }}</td>
+                                <td>{{ p.formation.nom_formation }}</td>
+                                <td>{{ p.date.strftime('%d/%m/%Y') }}</td>
+                                <td>{{ p.heure_debut.strftime('%H:%M') }} - {{ p.heure_fin.strftime('%H:%M') }}</td>
+                                <td>{{ '%.2f'|format(p.duree_heures) }} h</td>
+                                <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('presence_edit', id=p.id) }}">Modifier</a>
+                                    <form class="d-inline" method="post" action="{{ url_for('presence_delete', id=p.id) }}" onsubmit="return confirm('Supprimer cette presence ?');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-3">Aucune presence trouvee.</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const checklistFormationSelect = document.getElementById("checklist-formation-select");
+    const eleveChecklistDiv = document.getElementById("eleves-checklist");
+    const btnAllPresent = document.getElementById("btn-all-present");
+    const btnAllAbsent = document.getElementById("btn-all-absent");
+    const btnSaveChecklist = document.getElementById("btn-save-checklist");
+    const checklistCount = document.getElementById("checklist-count");
+    const checklistFeedback = document.getElementById("checklist-feedback");
+    const checklistDateInput = document.getElementById("checklist-date");
+    const checklistStartInput = document.getElementById("checklist-start");
+    const checklistEndInput = document.getElementById("checklist-end");
+    const checklistDateLabel = document.getElementById("checklist-date-label");
+    const btnDuration2h = document.getElementById("btn-duration-2h");
+    const btnDuration4h = document.getElementById("btn-duration-4h");
+
+    function showChecklistFeedback(message, level) {
+        if (!checklistFeedback) {
+            return;
+        }
+        const css = {
+            success: "alert-success",
+            warning: "alert-warning",
+            danger: "alert-danger",
+            info: "alert-info",
+        };
+        checklistFeedback.className = `alert py-2 px-3 mb-2 ${css[level] || css.info}`;
+        checklistFeedback.textContent = message;
+    }
+
+    function clearChecklistFeedback() {
+        if (!checklistFeedback) {
+            return;
+        }
+        checklistFeedback.className = "alert py-2 px-3 mb-2 d-none";
+        checklistFeedback.textContent = "";
+    }
+
+    function updateChecklistCount() {
+        if (!checklistCount) {
+            return;
+        }
+        const total = document.querySelectorAll(".eleve-checkbox").length;
+        const selected = document.querySelectorAll(".eleve-checkbox:checked").length;
+        checklistCount.textContent = `${selected} selectionne(s) / ${total}`;
+    }
+
+    function toIsoDate(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+    }
+
+    function addHoursToTime(timeValue, hoursToAdd) {
+        if (!timeValue) {
+            return "";
+        }
+        const parts = timeValue.split(":");
+        if (parts.length < 2) {
+            return "";
+        }
+
+        const dateObj = new Date();
+        dateObj.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
+        dateObj.setHours(dateObj.getHours() + Number(hoursToAdd || 0));
+
+        const hh = String(dateObj.getHours()).padStart(2, "0");
+        const mm = String(dateObj.getMinutes()).padStart(2, "0");
+        return `${hh}:${mm}`;
+    }
+
+    function applyDuration(hours) {
+        if (!checklistStartInput?.value || !checklistEndInput) {
+            return;
+        }
+        const calculated = addHoursToTime(checklistStartInput.value, hours);
+        if (calculated) {
+            checklistEndInput.value = calculated;
+        }
+    }
+
+    function updateChecklistDateLabel() {
+        const value = checklistDateInput?.value;
+        if (!checklistDateLabel) {
+            return;
+        }
+        checklistDateLabel.textContent = value ? `Date appliquee: ${value}` : "Date appliquee: aujourd'hui";
+    }
+
+    if (checklistDateInput && !checklistDateInput.value) {
+        checklistDateInput.value = toIsoDate(new Date());
+    }
+    updateChecklistDateLabel();
+
+    checklistDateInput?.addEventListener("change", () => {
+        updateChecklistDateLabel();
+        if (checklistFormationSelect?.value) {
+            checklistFormationSelect.dispatchEvent(new Event("change"));
+        }
+    });
+
+    btnDuration2h?.addEventListener("click", () => applyDuration(2));
+    btnDuration4h?.addEventListener("click", () => applyDuration(4));
+
+    checklistFormationSelect?.addEventListener("change", async (e) => {
+        const formationId = e.target.value;
+        if (!formationId) {
+            eleveChecklistDiv.innerHTML = '<div class="list-group-item text-muted">Selectionnez d\'abord une formation.</div>';
+            clearChecklistFeedback();
+            updateChecklistCount();
+            return;
+        }
+
+        try {
+            clearChecklistFeedback();
+            eleveChecklistDiv.innerHTML = '<div class="list-group-item text-muted">Chargement des etudiants...</div>';
+            const dateValue = checklistDateInput?.value || toIsoDate(new Date());
+            const response = await fetch(`/api/formation/eleves/${formationId}?presence_date=${encodeURIComponent(dateValue)}`);
+            const data = await response.json();
+            const eleves = data.eleves || [];
+            const sessionDuration = data.session_duration_hours || 2;
+
+            eleveChecklistDiv.innerHTML = "";
+            if (!eleves.length) {
+                eleveChecklistDiv.innerHTML = '<div class="list-group-item text-muted">Aucun eleve affecte a cette formation.</div>';
+                updateChecklistCount();
+                return;
+            }
+            
+            // Auto-calculate end time based on formation session duration
+            if (checklistStartInput?.value) {
+                const calculated = addHoursToTime(checklistStartInput.value, sessionDuration);
+                if (calculated) {
+                    checklistEndInput.value = calculated;
+                }
+            }
+            
+            // Auto-select duration buttons based on formation setting
+            if (sessionDuration === 4) {
+                btnDuration4h?.classList.add('active');
+                btnDuration2h?.classList.remove('active');
+            } else {
+                btnDuration2h?.classList.add('active');
+                btnDuration4h?.classList.remove('active');
+            }
+
+            eleves.forEach((eleve) => {
+                const checkboxId = `eleve-${eleve.id}`;
+                const label = document.createElement("label");
+                label.className = "list-group-item d-flex align-items-center justify-content-between";
+                label.innerHTML = `
+                    <div>
+                        <input class="form-check-input eleve-checkbox" type="checkbox" value="${eleve.id}" id="${checkboxId}" ${eleve.has_presence ? "checked" : ""}>
+                        <span class="ms-2">${eleve.nom_complet}</span>
+                    </div>
+                    ${eleve.has_presence ? '<span class="badge text-bg-success ms-2">Deja present</span>' : '<span class="badge text-bg-light border ms-2">A saisir</span>'}
+                `;
+                eleveChecklistDiv.appendChild(label);
+            });
+
+            updateChecklistCount();
+        } catch (error) {
+            console.error("Erreur:", error);
+            showChecklistFeedback("Erreur lors du chargement des etudiants.", "danger");
+        }
+    });
+
+    eleveChecklistDiv?.addEventListener("change", (event) => {
+        if (event.target.classList.contains("eleve-checkbox")) {
+            updateChecklistCount();
+        }
+    });
+
+    btnAllPresent?.addEventListener("click", () => {
+        document.querySelectorAll(".eleve-checkbox").forEach((cb) => {
+            cb.checked = true;
+        });
+        updateChecklistCount();
+    });
+
+    btnAllAbsent?.addEventListener("click", () => {
+        document.querySelectorAll(".eleve-checkbox").forEach((cb) => {
+            cb.checked = false;
+        });
+        updateChecklistCount();
+    });
+
+    btnSaveChecklist?.addEventListener("click", async () => {
+        const formationId = checklistFormationSelect.value;
+        const selectedEleves = [];
+        document.querySelectorAll(".eleve-checkbox:checked").forEach((cb) => {
+            selectedEleves.push(parseInt(cb.value));
+        });
+
+        if (!formationId || selectedEleves.length === 0) {
+            showChecklistFeedback("Selectionnez au moins une formation et un etudiant.", "warning");
+            return;
+        }
+
+        if (!checklistDateInput?.value || !checklistStartInput?.value || !checklistEndInput?.value) {
+            showChecklistFeedback("Renseignez la date et les heures pour la checklist.", "warning");
+            return;
+        }
+
+        if (checklistEndInput.value <= checklistStartInput.value) {
+            showChecklistFeedback("L'heure de fin doit etre superieure a l'heure de debut.", "warning");
+            return;
+        }
+
+        try {
+            clearChecklistFeedback();
+            btnSaveChecklist.disabled = true;
+            btnSaveChecklist.textContent = "Enregistrement...";
+            const response = await fetch("/api/presence/bulk_create", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": document.querySelector("input[name='csrf_token']")?.value || "",
+                },
+                body: JSON.stringify({
+                    formation_id: parseInt(formationId),
+                    eleve_ids: selectedEleves,
+                    presence_date: checklistDateInput.value,
+                    heure_debut: checklistStartInput.value,
+                    heure_fin: checklistEndInput.value,
+                }),
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                showChecklistFeedback(result.errors && result.errors.length ? result.errors[0] : "Requete invalide.", "danger");
+                return;
+            }
+
+            const added = Number(result.added || 0);
+            const skipped = Number(result.skipped || 0);
+            if (added > 0) {
+                showChecklistFeedback(`${added} presence(s) ajoutee(s). ${skipped} ignoree(s).`, "success");
+                setTimeout(() => {
+                    location.reload();
+                }, 700);
+            } else if (selectedEleves.length > 0 && (!result.errors || result.errors.length === 0)) {
+                showChecklistFeedback("Aucune nouvelle presence ajoutee (deja enregistree aujourd'hui).", "info");
+            } else if (result.errors && result.errors.length > 0) {
+                showChecklistFeedback(result.errors[0], "danger");
+            }
+        } catch (error) {
+            console.error("Erreur:", error);
+            showChecklistFeedback("Erreur lors de l'enregistrement.", "danger");
+        } finally {
+            btnSaveChecklist.disabled = false;
+            btnSaveChecklist.textContent = "Enregistrer la checklist";
+        }
+    });
+</script>
+{% endblock %}

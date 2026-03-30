@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}Modifier eleve{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm mx-auto" style="max-width: 640px;">
+    <div class="card-header"><h5 class="mb-0">Modifier l'eleve #{{ eleve.id }}</h5></div>
+    <div class="card-body">
+        <form method="post" novalidate>
+            {{ form.hidden_tag() }}
+            <div class="mb-3">
+                {{ form.nom.label(class='form-label') }}
+                {{ form.nom(class='form-control') }}
+            </div>
+            <div class="mb-3">
+                {{ form.prenom.label(class='form-label') }}
+                {{ form.prenom(class='form-control') }}
+            </div>
+            <div class="mb-3">
+                {{ form.email.label(class='form-label') }}
+                {{ form.email(class='form-control') }}
+            </div>
+            <div class="mb-3">
+                {{ form.numero.label(class='form-label') }}
+                {{ form.numero(class='form-control', placeholder='+216 00 000 000') }}
+            </div>
+            <div class="mb-3">
+                {{ form.formation_id.label(class='form-label') }}
+                {{ form.formation_id(class='form-select') }}
+                {% if current_formation %}
+                    <small class="text-muted">Formation actuelle: {{ current_formation.nom_formation }}</small>
+                {% endif %}
+            </div>
+            <div class="d-flex gap-2">
+                {{ form.submit(class='btn btn-primary') }}
+                <a class="btn btn-outline-secondary" href="{{ url_for('eleves') }}">Retour</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

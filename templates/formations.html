@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block title %}Formations{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-header"><h5 class="mb-0">Ajouter une formation</h5></div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ form.nom_formation.label(class='form-label') }}
+                        {{ form.nom_formation(class='form-control' + (' is-invalid' if form.nom_formation.errors else '')) }}
+                        {% for error in form.nom_formation.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.description.label(class='form-label') }}
+                        {{ form.description(class='form-control', rows='4', placeholder='Description courte de la formation...') }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.total_duration_hours.label(class='form-label') }}
+                        {{ form.total_duration_hours(class='form-control' + (' is-invalid' if form.total_duration_hours.errors else ''), min='1', step='1') }}
+                        {% for error in form.total_duration_hours.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-text">Exemple: 40h. Le systeme calculera automatiquement le temps restant.</div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.session_duration_hours.label(class='form-label') }}
+                        {{ form.session_duration_hours(class='form-select') }}
+                        <div class="form-text">Duree habituelle d'une seance (2h ou 4h).</div>
+                    </div>
+                    {{ form.submit(class='btn btn-primary w-100') }}
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                <h5 class="mb-0">Liste des formations</h5>
+                <form method="get" class="d-flex gap-2" role="search">
+                    <input class="form-control form-control-sm" type="search" name="q" value="{{ search }}" placeholder="Rechercher nom ou description">
+                    <button class="btn btn-sm btn-outline-primary" type="submit">Chercher</button>
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('formations') }}">Reset</a>
+                </form>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Nom</th>
+                            <th>Description</th>
+                            <th>Duree totale</th>
+                            <th>Seance</th>
+                            <th>Realise (date + heures)</th>
+                            <th>Reste</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for f in formations %}
+                            <tr>
+                                <td>{{ f.id }}</td>
+                                <td>{{ f.nom_formation }}</td>
+                                <td>{{ f.description }}</td>
+                                <td><span class="badge text-bg-secondary">{{ f.total_duration_hours }} h</span></td>
+                                <td><span class="badge text-bg-info">{{ f.session_duration_hours }}h</span></td>
+                                <td>
+                                    <span class="badge text-bg-primary">{{ '%.2f'|format(formation_stats[f.id].realised) }} h</span>
+                                    <div class="small text-muted">Calcule par date, heure debut et heure fin</div>
+                                </td>
+                                <td>
+                                    {% if formation_stats[f.id].remaining > 0 %}
+                                        <span class="badge text-bg-warning">{{ '%.2f'|format(formation_stats[f.id].remaining) }} h</span>
+                                    {% else %}
+                                        <span class="badge text-bg-success">Terminee</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('formation_edit', id=f.id) }}">Modifier</a>
+                                    <form class="d-inline" method="post" action="{{ url_for('formation_delete', id=f.id) }}" onsubmit="return confirm('Supprimer cette formation ?');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Supprimer</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="8" class="text-center text-muted py-3">Aucune formation trouvee. Essayez une autre recherche.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

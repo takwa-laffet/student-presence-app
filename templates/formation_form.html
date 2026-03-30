@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}Modifier formation{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm mx-auto" style="max-width: 720px;">
+    <div class="card-header"><h5 class="mb-0">Modifier la formation #{{ formation.id }}</h5></div>
+    <div class="card-body">
+        <form method="post" novalidate>
+            {{ form.hidden_tag() }}
+            <div class="mb-3">
+                {{ form.nom_formation.label(class='form-label') }}
+                {{ form.nom_formation(class='form-control') }}
+            </div>
+            <div class="mb-3">
+                {{ form.description.label(class='form-label') }}
+                {{ form.description(class='form-control', rows='4') }}
+            </div>
+            <div class="mb-3">
+                {{ form.total_duration_hours.label(class='form-label') }}
+                {{ form.total_duration_hours(class='form-control', min='1', step='1') }}
+                <div class="form-text">Le reste sera calcule automatiquement = duree totale - heures deja realisees.</div>
+            </div>
+            <div class="mb-3">
+                {{ form.session_duration_hours.label(class='form-label') }}
+                {{ form.session_duration_hours(class='form-select') }}
+                <div class="form-text">Selectionnez 2h ou 4h selon la duree habituelle des seances pour cette formation.</div>
+            </div>
+            <div class="d-flex gap-2">
+                {{ form.submit(class='btn btn-primary') }}
+                <a class="btn btn-outline-secondary" href="{{ url_for('formations') }}">Retour</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
