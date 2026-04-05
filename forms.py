@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import DateField, IntegerField, SelectField, StringField, SubmitField, TextAreaField, TimeField
+from wtforms import DateField, IntegerField, SelectField, SelectMultipleField, StringField, SubmitField, TextAreaField, TimeField
 from wtforms.validators import DataRequired, Email, Length, NumberRange, Optional
 
 
@@ -8,7 +8,7 @@ class EleveForm(FlaskForm):
     prenom = StringField("Prenom", validators=[DataRequired(), Length(max=120)])
     email = StringField("Email", validators=[DataRequired(), Email(), Length(max=200)])
     numero = StringField("Numero", validators=[Optional(), Length(max=30)])
-    formation_id = SelectField("Formation (optionnel)", coerce=int, validators=[Optional()], choices=[])
+    formation_ids = SelectMultipleField("Formations (optionnel)", coerce=int, validators=[Optional()], choices=[])
     submit = SubmitField("Enregistrer")
 
 

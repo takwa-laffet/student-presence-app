@@ -85,6 +85,7 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-info" href="{{ url_for('formation_details', formation_id=f.id) }}">Details</a>
                                     <a class="btn btn-sm btn-outline-primary" href="{{ url_for('formation_edit', id=f.id) }}">Modifier</a>
                                     <form class="d-inline" method="post" action="{{ url_for('formation_delete', id=f.id) }}" onsubmit="return confirm('Supprimer cette formation ?');">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

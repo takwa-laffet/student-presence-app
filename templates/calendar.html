@@ -1,0 +1,322 @@
+{% extends 'base.html' %}
+
+{% block title %}Calendrier des formations{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h5 class="mb-0">Calendrier des formations</h5>
+                    <small class="text-muted">Visualisez les presences et planning de vos eleves par date.</small>
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('calendar_view', month=previous_month, year=previous_year) }}">← Mois precedent</a>
+                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('calendar_view', month=today_month, year=today_year) }}">Aujourd'hui</a>
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('calendar_view', month=next_month, year=next_year) }}">Mois suivant →</a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-lg-8">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <h6 class="mb-0" id="calendar-month-label">{{ calendar_month_label }}</h6>
+                            <div class="d-flex gap-3 align-items-center">
+                                <span class="badge text-bg-success" id="calendar-total-presence">0 presences</span>
+                                <span class="badge text-bg-primary" id="calendar-total-hours">0h</span>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm align-middle mb-0" id="calendar-table">
+                                <thead>
+                                    <tr class="text-center">
+                                        <th>Lun</th>
+                                        <th>Mar</th>
+                                        <th>Mer</th>
+                                        <th>Jeu</th>
+                                        <th>Ven</th>
+                                        <th>Sam</th>
+                                        <th>Dim</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="calendar-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="mt-2 d-flex gap-2 flex-wrap">
+                            <small class="text-muted"><span class="badge bg-success-subtle text-success-emphasis">●</span> Presence enregistree</small>
+                            <small class="text-muted"><span class="badge bg-primary-subtle text-primary-emphasis">●</span> Aujourd'hui</small>
+                            <small class="text-muted"><span class="badge bg-warning-subtle text-warning-emphasis">●</span> Date selectionnee</small>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="p-3 border rounded-3 bg-light h-100" id="calendar-day-details">
+                            <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                                <h6 class="mb-0" id="calendar-day-title">Selectionnez une date</h6>
+                                <span class="badge text-bg-secondary" id="calendar-day-count">0 eleve(s)</span>
+                            </div>
+                            <div id="calendar-day-list" class="small text-muted">Cliquez sur une date dans le calendrier pour voir les eleves presents et les formations.</div>
+                            <div id="calendar-day-stats" class="mt-3 pt-2 border-top d-none">
+                                <small class="text-muted fw-bold">Resume du jour:</small>
+                                <div class="d-flex gap-3 mt-1">
+                                    <span class="small"><span id="stats-eleves">0</span> eleve(s)</span>
+                                    <span class="small"><span id="stats-formations">0</span> formation(s)</span>
+                                    <span class="small"><span id="stats-heures">0</span> heures</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="mb-0">Statistiques du mois</h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 col-md-3 mb-2 mb-md-0">
+                        <div class="p-2 rounded bg-primary-subtle">
+                            <div class="fw-bold fs-5" id="stat-total-presences">0</div>
+                            <small class="text-muted">Total presences</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3 mb-2 mb-md-0">
+                        <div class="p-2 rounded bg-success-subtle">
+                            <div class="fw-bold fs-5" id="stat-total-eleves">0</div>
+                            <small class="text-muted">Eleves uniques</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="p-2 rounded bg-warning-subtle">
+                            <div class="fw-bold fs-5" id="stat-total-formations">0</div>
+                            <small class="text-muted">Formations differentes</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="p-2 rounded bg-info-subtle">
+                            <div class="fw-bold fs-5" id="stat-total-heures">0h</div>
+                            <small class="text-muted">Heures totales</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const calendarYear = {{ calendar_year }};
+    const calendarMonth = {{ calendar_month }};
+    const currentMonthLabel = {{ calendar_month_label | tojson }};
+    const todayDate = new Date();
+    const todayStr = formatDateForDB(todayDate);
+    const presenceData = [
+        {% for p in presences %}
+        {
+            date: "{{ p.date.strftime('%Y-%m-%d') }}",
+            formationId: {{ p.formation.id }},
+            formationName: {{ p.formation.nom_formation | tojson }},
+            eleveName: {{ p.eleve.nom_complet | tojson }},
+            heureDebut: "{{ p.heure_debut.strftime('%H:%M') }}",
+            heureFin: "{{ p.heure_fin.strftime('%H:%M') }}",
+            duree: {{ '%.2f'|format(p.duree_heures) }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    const presencesByDate = {};
+    let selectedDate = null;
+
+    function getMonthLabel(monthIndex) {
+        const monthNames = ['Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre'];
+        return monthNames[monthIndex];
+    }
+
+    function formatDateForDB(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function buildIndex() {
+        presenceData.forEach((item) => {
+            if (!presencesByDate[item.date]) {
+                presencesByDate[item.date] = [];
+            }
+            presencesByDate[item.date].push(item);
+        });
+    }
+
+    function calculateStats() {
+        const uniqueEleves = new Set();
+        const uniqueFormations = new Set();
+        let totalHours = 0;
+        
+        presenceData.forEach((item) => {
+            uniqueEleves.add(item.eleveName);
+            uniqueFormations.add(item.formationName);
+            totalHours += item.duree;
+        });
+
+        return {
+            totalPresences: presenceData.length,
+            uniqueEleves: uniqueEleves.size,
+            uniqueFormations: uniqueFormations.size,
+            totalHours: totalHours.toFixed(1)
+        };
+    }
+
+    function renderDayDetails(dateStr, dayNum, monthIndex, year) {
+        const title = document.getElementById('calendar-day-title');
+        const count = document.getElementById('calendar-day-count');
+        const list = document.getElementById('calendar-day-list');
+        const statsDiv = document.getElementById('calendar-day-stats');
+        const statsEleves = document.getElementById('stats-eleves');
+        const statsFormations = document.getElementById('stats-formations');
+        const statsHeures = document.getElementById('stats-heures');
+        const items = presencesByDate[dateStr] || [];
+
+        selectedDate = dateStr;
+        title.textContent = `${dayNum} ${getMonthLabel(monthIndex)} ${year}`;
+        count.textContent = `${items.length} eleve(s)`;
+
+        const elevesSet = new Set();
+        const formationsSet = new Set();
+        let dayHours = 0;
+        items.forEach(item => {
+            elevesSet.add(item.eleveName);
+            formationsSet.add(item.formationName);
+            dayHours += item.duree;
+        });
+
+        statsEleves.textContent = elevesSet.size;
+        statsFormations.textContent = formationsSet.size;
+        statsHeures.textContent = dayHours.toFixed(1);
+        statsDiv.classList.remove('d-none');
+
+        if (!items.length) {
+            list.innerHTML = '<span class="text-muted">Aucune formation enregistree pour cette date.</span>';
+            return;
+        }
+
+        const grouped = items.reduce((acc, item) => {
+            if (!acc[item.formationName]) {
+                acc[item.formationName] = [];
+            }
+            acc[item.formationName].push(item);
+            return acc;
+        }, {});
+
+        list.innerHTML = Object.entries(grouped).map(([formation, entries]) => {
+            const eleves = entries.map((entry) => `<li class="mb-1">${entry.eleveName} <span class="text-muted">(${entry.heureDebut} - ${entry.heureFin})</span></li>`).join('');
+            return `
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                        <span class="badge text-bg-success">${formation}</span>
+                        <small class="text-muted">${entries.length} eleve(s)</small>
+                    </div>
+                    <ul class="mb-0 ps-3">${eleves}</ul>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderCalendar() {
+        const tbody = document.getElementById('calendar-body');
+        const monthLabel = document.getElementById('calendar-month-label');
+        const totalPresence = document.getElementById('calendar-total-presence');
+        const totalHours = document.getElementById('calendar-total-hours');
+        const stats = calculateStats();
+        
+        const statTotalPresences = document.getElementById('stat-total-presences');
+        const statTotalEleves = document.getElementById('stat-total-eleves');
+        const statTotalFormations = document.getElementById('stat-total-formations');
+        const statTotalHeures = document.getElementById('stat-total-heures');
+
+        const firstDay = new Date(calendarYear, calendarMonth - 1, 1);
+        const lastDay = new Date(calendarYear, calendarMonth, 0);
+        const startDate = new Date(firstDay);
+        startDate.setDate(startDate.getDate() - (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1));
+
+        monthLabel.textContent = currentMonthLabel;
+        totalPresence.textContent = `${stats.totalPresences} presence(s)`;
+        totalHours.textContent = `${stats.totalHours}h`;
+        
+        statTotalPresences.textContent = stats.totalPresences;
+        statTotalEleves.textContent = stats.uniqueEleves;
+        statTotalFormations.textContent = stats.uniqueFormations;
+        statTotalHeures.textContent = `${stats.totalHours}h`;
+
+        tbody.innerHTML = '';
+
+        let currentDate = new Date(startDate);
+        while (currentDate <= lastDay || currentDate.getDay() !== 1) {
+            const row = document.createElement('tr');
+            row.style.height = '118px';
+
+            for (let i = 0; i < 7; i++) {
+                const cell = document.createElement('td');
+                const isCurrentMonth = currentDate.getMonth() + 1 === calendarMonth;
+                const dateStr = formatDateForDB(currentDate);
+                const dayNum = currentDate.getDate();
+                const cellMonth = currentDate.getMonth();
+                const cellYear = currentDate.getFullYear();
+                const dayItems = presencesByDate[dateStr] || [];
+                const isToday = dateStr === todayStr;
+
+                cell.className = 'align-top calendar-cell';
+                cell.style.cursor = isCurrentMonth ? 'pointer' : 'default';
+                cell.style.verticalAlign = 'top';
+
+                let html = `<div class="fw-bold ${isCurrentMonth ? '' : 'text-muted'}">${dayNum}</div>`;
+                
+                if (isToday) {
+                    cell.classList.add('bg-primary-subtle');
+                    html += '<div class="mt-1"><span class="badge text-bg-primary" style="font-size: 0.65rem;">Aujourd\'hui</span></div>';
+                } else if (isCurrentMonth && dayItems.length) {
+                    const uniqueFormations = [...new Set(dayItems.map((item) => item.formationName))];
+                    html += '<div class="mt-1 d-flex flex-wrap gap-1">';
+                    uniqueFormations.slice(0, 3).forEach((formationName) => {
+                        html += `<span class="badge text-bg-success" style="font-size: 0.72rem;">${formationName}</span>`;
+                    });
+                    if (uniqueFormations.length > 3) {
+                        html += `<span class="badge text-bg-secondary" style="font-size: 0.72rem;">+${uniqueFormations.length - 3}</span>`;
+                    }
+                    html += '</div>';
+                    cell.classList.add('bg-success-subtle');
+                } else if (!isCurrentMonth) {
+                    cell.classList.add('bg-light');
+                }
+
+                if (selectedDate === dateStr) {
+                    cell.classList.add('bg-warning-subtle');
+                }
+
+                cell.innerHTML = html;
+                if (isCurrentMonth) {
+                    cell.addEventListener('click', () => renderDayDetails(dateStr, dayNum, cellMonth, cellYear));
+                }
+
+                row.appendChild(cell);
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            tbody.appendChild(row);
+        }
+    }
+
+    window.addEventListener('load', () => {
+        buildIndex();
+        renderCalendar();
+        const today = new Date();
+        const todayIso = formatDateForDB(today);
+        if (presencesByDate[todayIso]) {
+            renderDayDetails(todayIso, today.getDate(), today.getMonth(), today.getFullYear());
+        }
+    });
+</script>
+{% endblock %}

@@ -39,8 +39,9 @@
                         {% endfor %}
                     </div>
                     <div class="mb-3">
-                        {{ form.formation_id.label(class='form-label') }}
-                        {{ form.formation_id(class='form-select') }}
+                        {{ form.formation_ids.label(class='form-label') }}
+                        {{ form.formation_ids(class='form-select', multiple=true, size='4') }}
+                        <div class="form-text">Un eleve peut etre inscrit dans plusieurs formations.</div>
                     </div>
                     {{ form.submit(class='btn btn-primary w-100') }}
                 </form>
@@ -68,6 +69,7 @@
                             <th>Prenom</th>
                             <th>Email</th>
                             <th>Numero</th>
+                            <th>Formations</th>
                             <th class="text-end">Actions</th>
                         </tr>
                         </thead>
@@ -79,6 +81,13 @@
                                 <td>{{ e.prenom }}</td>
                                 <td>{{ e.email }}</td>
                                 <td>{{ e.numero or '-' }}</td>
+                                <td>
+                                    {% if e.formations %}
+                                        {{ e.formations | map(attribute='nom_formation') | join(', ') }}
+                                    {% else %}
+                                        <span class="text-muted">Aucune</span>
+                                    {% endif %}
+                                </td>
                                 <td class="text-end">
                                     <a class="btn btn-sm btn-outline-primary" href="{{ url_for('eleve_edit', id=e.id) }}">Modifier</a>
                                     <form class="d-inline" method="post" action="{{ url_for('eleve_delete', id=e.id) }}" onsubmit="return confirm('Supprimer cet eleve ?');">
@@ -88,7 +97,7 @@
                                 </td>
                             </tr>
                         {% else %}
-                            <tr><td colspan="6" class="text-center text-muted py-3">Aucun eleve trouve. Essayez une autre recherche.</td></tr>
+                            <tr><td colspan="7" class="text-center text-muted py-3">Aucun eleve trouve. Essayez une autre recherche.</td></tr>
                         {% endfor %}
                         </tbody>
                     </table>

@@ -6,6 +6,14 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 
+eleve_formations = db.Table(
+    "eleve_formations",
+    db.Column("eleve_id", db.Integer, db.ForeignKey("eleves.id", ondelete="CASCADE"), primary_key=True),
+    db.Column("formation_id", db.Integer, db.ForeignKey("formations.id", ondelete="CASCADE"), primary_key=True),
+    db.UniqueConstraint("eleve_id", "formation_id", name="uq_eleve_formation"),
+)
+
+
 class Eleve(db.Model):
     __tablename__ = "eleves"
 
@@ -14,12 +22,11 @@ class Eleve(db.Model):
     prenom = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(200), unique=True, nullable=False)
     numero = db.Column(db.String(30), nullable=True)
-    formation_id = db.Column(db.Integer, db.ForeignKey("formations.id"), nullable=True)
 
     presences = db.relationship(
         "Presence", back_populates="eleve", cascade="all, delete-orphan"
     )
-    formation = db.relationship("Formation", back_populates="eleves")
+    formations = db.relationship("Formation", secondary=eleve_formations, back_populates="eleves")
 
     @property
     def nom_complet(self):
@@ -38,7 +45,7 @@ class Formation(db.Model):
     presences = db.relationship(
         "Presence", back_populates="formation", cascade="all, delete-orphan"
     )
-    eleves = db.relationship("Eleve", back_populates="formation")
+    eleves = db.relationship("Eleve", secondary=eleve_formations, back_populates="formations")
 
     @property
     def realised_duration_hours(self):
@@ -62,7 +69,7 @@ class Formation(db.Model):
 class Presence(db.Model):
     __tablename__ = "presences"
     __table_args__ = (
-        db.UniqueConstraint("eleve_id", "date", name="uq_presence_eleve_date"),
+        db.UniqueConstraint("eleve_id", "formation_id", "date", name="uq_presence_eleve_formation_date"),
     )
 
     id = db.Column(db.Integer, primary_key=True)

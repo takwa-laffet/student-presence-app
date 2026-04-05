@@ -2,10 +2,10 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.x-orange.svg)](https://flask.palletsprojects.com/)
-[![MySQL](https://img.shields.io/badge/MySQL-8.0+-00758F.svg)](https://www.mysql.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-336791.svg)](https://www.postgresql.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-A modern web application for managing student attendance, training courses, and generating detailed reports. Built with Flask, SQLAlchemy, and MySQL.
+A modern web application for managing student attendance, training courses, and generating detailed reports. Built with Flask, SQLAlchemy, and PostgreSQL.
 
 ![Dashboard Preview](https://via.placeholder.com/800x400?text=Attendance+Tracker+Dashboard)
 
@@ -55,7 +55,7 @@ A modern web application for managing student attendance, training courses, and 
 | Component | Technology |
 |-----------|------------|
 | Backend | Python 3.10+ / Flask 3.x |
-| Database | MySQL 8.0+ / MariaDB |
+| Database | PostgreSQL 14+ |
 | ORM | SQLAlchemy + Flask-SQLAlchemy |
 | Forms | WTForms + Flask-WTF |
 | PDF Generation | ReportLab |
@@ -68,7 +68,7 @@ A modern web application for managing student attendance, training courses, and 
 
 - **Operating System:** Windows 10/11, macOS, or Linux
 - **Python:** Version 3.10 or higher
-- **Database:** MySQL 8.0+ or MariaDB (via XAMPP or standalone)
+- **Database:** PostgreSQL 14+ (standalone)
 - **Package Manager:** pip
 
 ---
@@ -104,11 +104,11 @@ pip install -r requirements.txt
 
 ## ⚙️ Configuration
 
-### Database Setup (XAMPP)
+### Database Setup (PostgreSQL)
 
-1. Open XAMPP Control Panel
-2. Start MySQL service
-3. Ensure port is `3306` (default)
+1. Install PostgreSQL and start the service
+2. Create or use a PostgreSQL user (default: `postgres`)
+3. Ensure port is `5432` (default)
 
 ### Environment Variables
 
@@ -116,10 +116,10 @@ Create a `.env` file or set environment variables:
 
 ```powershell
 # PowerShell
-$env:DB_USER="root"
+$env:DB_USER="postgres"
 $env:DB_PASSWORD="your_password"
 $env:DB_HOST="127.0.0.1"
-$env:DB_PORT="3306"
+$env:DB_PORT="5432"
 $env:DB_NAME="systeme_presence"
 $env:SECRET_KEY="your-secret-key-here"
 ```
@@ -131,7 +131,7 @@ $env:SECRET_KEY="your-secret-key-here"
 | `DB_USER` | root | Database username |
 | `DB_PASSWORD` | (empty) | Database password |
 | `DB_HOST` | 127.0.0.1 | Database host |
-| `DB_PORT` | 3306 | Database port |
+| `DB_PORT` | 5432 | Database port |
 | `DB_NAME` | systeme_presence | Database name |
 | `SECRET_KEY` | dev-secret-key | Flask secret key |
 | `FLASK_DEBUG` | 0 | Enable debug mode (0 or 1) |
@@ -244,7 +244,7 @@ Navigate to `/rapport` to:
 
 | Error | Solution |
 |-------|----------|
-| `Unknown database 'systeme_presence'` | Ensure MySQL is running; database creates automatically |
+| `database "systeme_presence" does not exist` | Ensure PostgreSQL is running; database creates automatically |
 | `Access denied for user 'root'@...` | Check DB_PASSWORD in environment variables |
 | `ModuleNotFoundError` | Run `pip install -r requirements.txt` |
 | `Port 5001 already in use` | Change port in `app.py` or stop conflicting service |
@@ -252,7 +252,7 @@ Navigate to `/rapport` to:
 ### Development Tips
 
 - Enable debug mode: Set `FLASK_DEBUG=1`
-- Check database connection: Verify MySQL service is running
+- Check database connection: Verify PostgreSQL service is running
 - Clear session issues: Delete `.db` files if using SQLite
 
 ---
@@ -280,7 +280,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Flask](https://flask.palletsprojects.com/) - The micro framework
 - [Bootstrap](https://getbootstrap.com/) - UI framework
 - [ReportLab](https://www.reportlab.com/) - PDF generation
-- [XAMPP](https://www.apachefriends.org/) - MySQL distribution
+- [PostgreSQL](https://www.postgresql.org/) - Database server
 
 ---
 

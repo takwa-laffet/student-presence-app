@@ -20,6 +20,7 @@
                 <li class="nav-item"><a class="nav-link {% if request.endpoint in ['eleves', 'eleve_edit'] %}active{% endif %}" href="{{ url_for('eleves') }}">Eleves</a></li>
                 <li class="nav-item"><a class="nav-link {% if request.endpoint in ['formations', 'formation_edit'] %}active{% endif %}" href="{{ url_for('formations') }}">Formations</a></li>
                 <li class="nav-item"><a class="nav-link {% if request.endpoint in ['presence', 'presence_edit'] %}active{% endif %}" href="{{ url_for('presence') }}">Presences</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}">Calendrier</a></li>
                 <li class="nav-item"><a class="nav-link {% if request.endpoint == 'rapport' %}active{% endif %}" href="{{ url_for('rapport') }}">Rapport</a></li>
             </ul>
             <div class="d-flex gap-2 ms-lg-3 mt-3 mt-lg-0">

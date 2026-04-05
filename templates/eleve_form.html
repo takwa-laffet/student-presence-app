@@ -25,10 +25,10 @@
                 {{ form.numero(class='form-control', placeholder='+216 00 000 000') }}
             </div>
             <div class="mb-3">
-                {{ form.formation_id.label(class='form-label') }}
-                {{ form.formation_id(class='form-select') }}
-                {% if current_formation %}
-                    <small class="text-muted">Formation actuelle: {{ current_formation.nom_formation }}</small>
+                {{ form.formation_ids.label(class='form-label') }}
+                {{ form.formation_ids(class='form-select', multiple=true, size='6') }}
+                {% if current_formations %}
+                    <small class="text-muted">Formations actuelles: {{ current_formations | map(attribute='nom_formation') | join(', ') }}</small>
                 {% endif %}
             </div>
             <div class="d-flex gap-2">
