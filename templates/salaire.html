@@ -1,0 +1,272 @@
+{% extends 'base.html' %}
+
+{% block title %}Salaire{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div></div>
+    <a href="{{ url_for('salaire_pdf', start_date=start_date.strftime('%Y-%m-%d') if start_date else '', end_date=end_date.strftime('%Y-%m-%d') if end_date else '') }}" class="btn btn-outline-primary" target="_blank">Telecharger PDF</a>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-header"><h5 class="mb-0">Taux horaire</h5></div>
+            <div class="card-body">
+                <form method="post">
+                    <div class="input-group">
+                        <input type="number" name="rate_per_hour" class="form-control" value="{{ rate }}" min="0" step="0.5">
+                        <span class="input-group-text">DT/h</span>
+                        <button type="submit" class="btn btn-primary">Mettre a jour</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Total heures</h6>
+                <p class="display-5 mb-0 text-primary">{{ "%.1f"|format(total_heures_all) }}h</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Taux</h6>
+                <p class="display-5 mb-0 text-warning">{{ rate }} DT/h</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Total salaire</h6>
+                <p class="display-5 mb-0 text-success">{{ "%.2f"|format(total_salary_all) }} DT</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Filtrer par periode</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Date debut</label>
+                <input type="date" name="start_date" class="form-control" value="{{ start_date.strftime('%Y-%m-%d') if start_date else '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Date fin</label>
+                <input type="date" name="end_date" class="form-control" value="{{ end_date.strftime('%Y-%m-%d') if end_date else '' }}">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Filtrer</button>
+                <a href="{{ url_for('salaire') }}" class="btn btn-outline-secondary">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-header"><h5 class="mb-0">Taux horaire</h5></div>
+            <div class="card-body">
+                <form method="post">
+                    <div class="input-group">
+                        <input type="number" name="rate_per_hour" class="form-control" value="{{ rate }}" min="0" step="0.5">
+                        <span class="input-group-text">DT/h</span>
+                        <button type="submit" class="btn btn-primary">Mettre a jour</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Total heures</h6>
+                <p class="display-5 mb-0 text-primary">{{ "%.1f"|format(total_heures_all) }}h</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Total salaire</h6>
+                <p class="display-5 mb-0 text-success">{{ "%.2f"|format(total_salary_all) }} DT</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if chart_path %}
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header"><h5 class="mb-0">Salaire par mois</h5></div>
+            <div class="card-body">
+                <img src="{{ url_for('serve_temp_image', filename='salary_monthly.png') }}" class="img-fluid" alt="Salaire par mois">
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Toutes les seances</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Formation</th>
+                        <th>Date</th>
+                        <th>Heure debut</th>
+                        <th>Heure fin</th>
+                        <th class="text-center">Duree</th>
+                        <th class="text-end">Salaire</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set colors = {'dev web': 'bg-primary', 'Python': 'bg-info', 'default': 'bg-secondary'} %}
+                    {% for s in all_sessions %}
+                    {% set color = colors[s.formation] if s.formation in colors else colors['default'] %}
+                    <tr>
+                        <td>{{ s.id }}</td>
+                        <td><span class="badge {{ color }}">{{ s.formation }}</span></td>
+                        <td>{{ s.date.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ s.heure_debut.strftime('%H:%M') }}</td>
+                        <td>{{ s.heure_fin.strftime('%H:%M') }}</td>
+                        <td class="text-center">{{ "%.2f"|format(s.duree) }}h</td>
+                        <td class="text-end text-success">{{ "%.2f"|format(s.salary) }} DT</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">Aucune seance</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header"><h5 class="mb-0">Salaire par formation</h5></div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Formation</th>
+                                <th class="text-center">Seances</th>
+                                <th class="text-end">Heures</th>
+                                <th class="text-end">Salaire</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in formation_stats %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('formation_details', formation_id=f.formation.id) }}">{{ f.formation.nom_formation }}</a>
+                                </td>
+                                <td class="text-center">{{ f.sessions }}</td>
+                                <td class="text-end">{{ "%.1f"|format(f.total_hours) }}h</td>
+                                <td class="text-end text-success">{{ "%.2f"|format(f.total_salary) }} DT</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">Aucune formation</td>
+                            </tr>
+                            {% endfor %}
+                            {% if formation_stats %}
+                            <tr class="table-secondary">
+                                <td><strong>Total</strong></td>
+                                <td class="text-center"><strong>{{ formation_stats|length }}</strong></td>
+                                <td class="text-end"><strong>{{ "%.1f"|format(total_heures_all) }}h</strong></td>
+                                <td class="text-end text-success"><strong>{{ "%.2f"|format(total_salary_all) }} DT</strong></td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header"><h5 class="mb-0">Salaire par mois</h5></div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Mois</th>
+                                <th class="text-end">Heures</th>
+                                <th class="text-end">Salaire</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in month_data %}
+                            <tr>
+                                <td>{{ m.month }}</td>
+                                <td class="text-end">{{ "%.1f"|format(m.hours) }}h</td>
+                                <td class="text-end text-success">{{ "%.2f"|format(m.salary) }} DT</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">Aucune donnee</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header"><h5 class="mb-0">Salaire par semaine</h5></div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Semaine</th>
+                                <th class="text-end">Heures</th>
+                                <th class="text-end">Salaire</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for w in week_data %}
+                            <tr>
+                                <td>{{ w.week }}</td>
+                                <td class="text-end">{{ "%.1f"|format(w.hours) }}h</td>
+                                <td class="text-end text-success">{{ "%.2f"|format(w.salary) }} DT</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">Aucune donnee</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

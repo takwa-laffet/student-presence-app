@@ -75,7 +75,7 @@
                                 <td><span class="badge text-bg-info">{{ f.session_duration_hours }}h</span></td>
                                 <td>
                                     <span class="badge text-bg-primary">{{ '%.2f'|format(formation_stats[f.id].realised) }} h</span>
-                                    <div class="small text-muted">Calcule par date, heure debut et heure fin</div>
+                                    <div class="small text-muted">Calcule par seance unique (date + heure)</div>
                                 </td>
                                 <td>
                                     {% if formation_stats[f.id].remaining > 0 %}

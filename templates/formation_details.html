@@ -5,6 +5,7 @@
 {% block content %}
 <div class="mb-4">
     <a href="{{ url_for('formations') }}" class="btn btn-outline-secondary">&larr; Retour aux formations</a>
+    <a href="{{ url_for('rapport_pdf_complet', formation_id=formation.id) }}" class="btn btn-outline-primary" target="_blank">Exporter en PDF</a>
 </div>
 
 <div class="row g-3 mb-4">
@@ -29,6 +30,15 @@
             <div class="card-body">
                 <h5 class="card-title">Heures realisees</h5>
                 <p class="display-6 mb-0">{{ "%.1f"|format(realised_hours) }}h</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat h-100">
+            <div class="card-body">
+                <h5 class="card-title">Salaire</h5>
+                <p class="display-6 mb-0 text-success">{{ "%.2f"|format(total_salary) }} DT</p>
+                <small class="text-muted">@ 15 DT/heure</small>
             </div>
         </div>
     </div>

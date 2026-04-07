@@ -22,6 +22,7 @@
                 <li class="nav-item"><a class="nav-link {% if request.endpoint in ['presence', 'presence_edit'] %}active{% endif %}" href="{{ url_for('presence') }}">Presences</a></li>
                 <li class="nav-item"><a class="nav-link {% if request.endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}">Calendrier</a></li>
                 <li class="nav-item"><a class="nav-link {% if request.endpoint == 'rapport' %}active{% endif %}" href="{{ url_for('rapport') }}">Rapport</a></li>
+                <li class="nav-item"><a class="nav-link {% if request.endpoint == 'salaire' %}active{% endif %}" href="{{ url_for('salaire') }}">Salaire</a></li>
             </ul>
             <div class="d-flex gap-2 ms-lg-3 mt-3 mt-lg-0">
                 <span class="badge rounded-pill text-bg-light">Heures totales: {{ '%.2f'|format(total_heures_global) }} h</span>

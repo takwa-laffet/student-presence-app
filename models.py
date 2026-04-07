@@ -90,3 +90,11 @@ class Presence(db.Model):
             return 0.0
         delta = fin - debut
         return round(delta.total_seconds() / 3600, 2)
+
+
+class Salary(db.Model):
+    __tablename__ = "salaries"
+
+    id = db.Column(db.Integer, primary_key=True)
+    rate_per_hour = db.Column(db.Float, nullable=False, default=15.0)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

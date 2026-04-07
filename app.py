@@ -19,7 +19,7 @@ from sqlalchemy.exc import IntegrityError
 
 from config import Config
 from forms import EleveForm, FormationForm, PresenceForm
-from models import Eleve, Formation, Presence, db, eleve_formations
+from models import Eleve, Formation, Presence, Salary, db, eleve_formations
 
 
 app = Flask(__name__)
@@ -224,11 +224,13 @@ def seed_initial_data():
             "nom_formation": "dev web",
             "description": "Formation developpement web",
             "total_duration_hours": 40,
+            "session_duration_hours": 2,
         },
         {
             "nom_formation": "Python",
             "description": "Formation Python",
             "total_duration_hours": 40,
+            "session_duration_hours": 2,
         },
     ]
 
@@ -452,7 +454,7 @@ with app.app_context():
     ensure_database_exists()
     db.create_all()
     ensure_schema_compatibility()
-    seed_initial_data()
+    # seed_initial_data()  # Commented out to avoid auto-seeding
 
 
 @app.route("/")
@@ -728,9 +730,23 @@ def formation_details(formation_id):
     remaining = formation.remaining_duration_hours
     progress_percentage = (total_realised / formation.total_duration_hours * 100) if formation.total_duration_hours > 0 else 0
     
+    unique_slots = {}
+    for p in presences:
+        slot = (p.date, p.heure_debut, p.heure_fin)
+        if slot not in unique_slots:
+            unique_slots[slot] = p.duree_heures
+    
+    salary_rate = 15
+    total_salary = sum(unique_slots.values()) * salary_rate
+    
     presences_by_eleve = defaultdict(float)
     presence_count_by_eleve = defaultdict(int)
+    seen_slots_by_eleve = defaultdict(set)
     for p in presences:
+        slot = (p.date, p.heure_debut, p.heure_fin)
+        if slot in seen_slots_by_eleve[p.eleve_id]:
+            continue
+        seen_slots_by_eleve[p.eleve_id].add(slot)
         presences_by_eleve[p.eleve_id] += p.duree_heures
         presence_count_by_eleve[p.eleve_id] += 1
     
@@ -738,7 +754,7 @@ def formation_details(formation_id):
     for eleve in eleves:
         hours = presences_by_eleve.get(eleve.id, 0)
         count = presence_count_by_eleve.get(eleve.id, 0)
-        progress = (hours / formation.total_duration_hours * 100) if formation.total_duration_hours > 0 else 0
+        progress = (hours / total_realised * 100) if total_realised > 0 else 0
         eleves_stats.append({
             "eleve": eleve,
             "total_hours": hours,
@@ -800,6 +816,7 @@ def formation_details(formation_id):
         realised_hours=total_realised,
         remaining_hours=remaining,
         progress_percentage=progress_percentage,
+        total_salary=total_salary,
         chart_eleve_url=chart_eleve_url,
         chart_month_url=chart_month_url,
         chart_week_url=chart_week_url,
@@ -1742,12 +1759,19 @@ def rapport_pdf_complet():
     selected_eleve_id = request.args.get("eleve_id", type=int)
     selected_formation_id = request.args.get("formation_id", type=int)
 
+    formation = None
+    if selected_formation_id:
+        formation = Formation.query.get(selected_formation_id)
+        formations = [formation] if formation else []
+    else:
+        formations = Formation.query.order_by(Formation.nom_formation.asc()).all()
+
     eleves_query = Eleve.query.order_by(Eleve.nom.asc(), Eleve.prenom.asc())
     if selected_eleve_id:
         eleves_query = eleves_query.filter(Eleve.id == selected_eleve_id)
+    elif selected_formation_id and formation:
+        eleves_query = eleves_query.join(eleve_formations).filter(eleve_formations.c.formation_id == selected_formation_id)
     eleves = eleves_query.all()
-
-    formations = Formation.query.order_by(Formation.nom_formation.asc()).all()
 
     presences_query = Presence.query.filter(
         Presence.date >= start_date,
@@ -1809,12 +1833,8 @@ def rapport_pdf_complet():
     )
 
     story = []
-    if selected_formation_id:
-        formation = Formation.query.get(selected_formation_id)
-        if formation:
-            story.append(Paragraph(f"RAPPORT: {formation.nom_formation}", title_style))
-        else:
-            story.append(Paragraph("RAPPORT DE FORMATION", title_style))
+    if selected_formation_id and formation:
+        story.append(Paragraph(f"RAPPORT: {formation.nom_formation}", title_style))
     else:
         story.append(Paragraph("RAPPORT DE FORMATION", title_style))
     story.append(
@@ -1823,10 +1843,8 @@ def rapport_pdf_complet():
             styles["Normal"],
         )
     )
-    if not selected_formation_id:
-        formation_names = ", ".join([f.nom_formation for f in formations if any(p.formation_id == f.id for p in presences)])
-        if formation_names:
-            story.append(Paragraph(f"<b>Formations:</b> {formation_names}", styles["Normal"]))
+    if selected_formation_id and formation:
+        story.append(Paragraph(f"<b>Formation:</b> {formation.nom_formation}", styles["Normal"]))
     story.append(Spacer(1, 0.3 * inch))
 
     total_heures_global = sum(p.duree_heures for p in presences)
@@ -1965,6 +1983,319 @@ def rapport_pdf_complet():
         mimetype="application/pdf",
         as_attachment=True,
         download_name=f"rapport_complet_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.pdf",
+    )
+
+
+@app.route("/salaire", methods=["GET", "POST"])
+def salaire():
+    salary_setting = Salary.query.first()
+    
+    if request.method == "POST":
+        rate = request.form.get("rate_per_hour", type=float, default=15.0)
+        if salary_setting:
+            salary_setting.rate_per_hour = rate
+        else:
+            salary_setting = Salary(rate_per_hour=rate)
+            db.session.add(salary_setting)
+        db.session.commit()
+        flash("Taux mis a jour avec succes.", "success")
+        return redirect(url_for("salaire"))
+    
+    rate = salary_setting.rate_per_hour if salary_setting else 15.0
+    
+    start_date = parse_date_arg(request.args.get("start_date"))
+    end_date = parse_date_arg(request.args.get("end_date"))
+    
+    formations = Formation.query.all()
+    formation_stats = []
+    
+    for formation in formations:
+        query = Presence.query.filter_by(formation_id=formation.id)
+        if start_date:
+            query = query.filter(Presence.date >= start_date)
+        if end_date:
+            query = query.filter(Presence.date <= end_date)
+        presences = query.all()
+        
+        unique_slots = {}
+        for p in presences:
+            slot = (p.date, p.heure_debut, p.heure_fin)
+            if slot not in unique_slots:
+                unique_slots[slot] = p.duree_heures
+        
+        total_hours = sum(unique_slots.values())
+        total_salary = total_hours * rate
+        
+        formation_stats.append({
+            "formation": formation,
+            "total_hours": total_hours,
+            "total_salary": total_salary,
+            "sessions": len(unique_slots)
+        })
+    
+    total_heures_all = sum(f["total_hours"] for f in formation_stats)
+    total_salary_all = sum(f["total_salary"] for f in formation_stats)
+    
+    month_hours = defaultdict(float)
+    month_salary = defaultdict(float)
+    
+    for formation in formations:
+        query = Presence.query.filter_by(formation_id=formation.id)
+        if start_date:
+            query = query.filter(Presence.date >= start_date)
+        if end_date:
+            query = query.filter(Presence.date <= end_date)
+        presences = query.all()
+        
+        seen_slots = set()
+        for p in presences:
+            slot = (p.date, p.heure_debut, p.heure_fin)
+            if slot in seen_slots:
+                continue
+            seen_slots.add(slot)
+            month_key = p.date.strftime("%Y-%m")
+            month_hours[month_key] += p.duree_heures
+    
+    for m in month_hours:
+        month_salary[m] = month_hours[m] * rate
+    
+    sorted_months = sorted(month_hours.keys())
+    month_data = [{"month": datetime.strptime(m, "%Y-%m").strftime("%B %Y"), "hours": month_hours[m], "salary": month_salary[m]} for m in sorted_months]
+    
+    chart_path = None
+    if month_hours:
+        chart_path = os.path.join(app.config.get('TEMP_FOLDER', '/tmp'), 'salary_monthly.png')
+        fig, ax = plt.subplots(figsize=(10, 5))
+        months = [datetime.strptime(m, "%Y-%m").strftime("%b") for m in sorted_months]
+        salaries = [month_salary[m] for m in sorted_months]
+        ax.bar(months, salaries, color='#28a745')
+        ax.set_xlabel('Mois')
+        ax.set_ylabel('Salaire (DT)')
+        ax.set_title('Salaire par mois')
+        for i, v in enumerate(salaries):
+            ax.text(i, v + 5, f'{v:.0f} DT', ha='center', fontsize=9)
+        plt.tight_layout()
+        plt.savefig(chart_path, dpi=100)
+        plt.close()
+    
+    week_hours = defaultdict(float)
+    week_salary = defaultdict(float)
+    
+    for formation in formations:
+        query = Presence.query.filter_by(formation_id=formation.id)
+        if start_date:
+            query = query.filter(Presence.date >= start_date)
+        if end_date:
+            query = query.filter(Presence.date <= end_date)
+        presences = query.all()
+        
+        seen_slots = set()
+        for p in presences:
+            slot = (p.date, p.heure_debut, p.heure_fin)
+            if slot in seen_slots:
+                continue
+            seen_slots.add(slot)
+            iso = p.date.isocalendar()
+            week_key = f"{iso[0]}-S{iso[1]:02d}"
+            week_hours[week_key] += p.duree_heures
+    
+    for w in week_hours:
+        week_salary[w] = week_hours[w] * rate
+    
+    sorted_weeks = sorted(week_hours.keys())
+    week_data = [{"week": w, "hours": week_hours[w], "salary": week_salary[w]} for w in sorted_weeks]
+    
+    all_sessions = []
+    seen_slots = set()
+    for formation in formations:
+        query = Presence.query.filter_by(formation_id=formation.id)
+        if start_date:
+            query = query.filter(Presence.date >= start_date)
+        if end_date:
+            query = query.filter(Presence.date <= end_date)
+        for p in query.all():
+            slot = (p.date, p.heure_debut, p.heure_fin)
+            if slot in seen_slots:
+                continue
+            seen_slots.add(slot)
+            all_sessions.append({
+                "id": p.id,
+                "formation": formation.nom_formation,
+                "date": p.date,
+                "heure_debut": p.heure_debut,
+                "heure_fin": p.heure_fin,
+                "duree": p.duree_heures,
+                "salary": p.duree_heures * rate
+            })
+    
+    all_sessions = sorted(all_sessions, key=lambda x: x["date"], reverse=True)
+    
+    return render_template(
+        "salaire.html",
+        rate=rate,
+        formation_stats=formation_stats,
+        total_heures_all=total_heures_all,
+        total_salary_all=total_salary_all,
+        month_data=month_data,
+        week_data=week_data,
+        chart_path=chart_path,
+        start_date=start_date,
+        end_date=end_date,
+        all_sessions=all_sessions,
+    )
+
+
+@app.route("/salaire/pdf")
+def salaire_pdf():
+    salary_setting = Salary.query.first()
+    rate = salary_setting.rate_per_hour if salary_setting else 15.0
+    
+    start_date = parse_date_arg(request.args.get("start_date"))
+    end_date = parse_date_arg(request.args.get("end_date"))
+    
+    formations = Formation.query.all()
+    
+    all_sessions = []
+    seen_slots = set()
+    total_hours = 0.0
+    
+    for formation in formations:
+        query = Presence.query.filter_by(formation_id=formation.id)
+        if start_date:
+            query = query.filter(Presence.date >= start_date)
+        if end_date:
+            query = query.filter(Presence.date <= end_date)
+        
+        formation_hours = 0.0
+        for p in query.all():
+            slot = (p.date, p.heure_debut, p.heure_fin)
+            if slot in seen_slots:
+                continue
+            seen_slots.add(slot)
+            all_sessions.append({
+                "formation": formation.nom_formation,
+                "date": p.date,
+                "heure_debut": p.heure_debut.strftime("%H:%M"),
+                "heure_fin": p.heure_fin.strftime("%H:%M"),
+                "duree": p.duree_heures,
+                "salary": p.duree_heures * rate
+            })
+            formation_hours += p.duree_heures
+            total_hours += p.duree_heures
+    
+    all_sessions = sorted(all_sessions, key=lambda x: x["date"], reverse=True)
+    total_salary = total_hours * rate
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    styles = getSampleStyleSheet()
+    
+    title_style = ParagraphStyle("Title", parent=styles["Heading1"], fontSize=18, spaceAfter=20, alignment=1)
+    heading_style = ParagraphStyle("Heading", parent=styles["Heading2"], fontSize=14, spaceAfter=10, textColor=colors.HexColor("#0a4f44"))
+    subheading_style = ParagraphStyle("SubHeading", parent=styles["Heading3"], fontSize=11, textColor=colors.HexColor("#0a4f44"), spaceAfter=5)
+    
+    story = []
+    story.append(Paragraph("RAPPORT DE SALAIRE", title_style))
+    
+    if start_date and end_date:
+        story.append(Paragraph(f"<b>Periode:</b> {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}", styles["Normal"]))
+    story.append(Paragraph(f"<b>Taux horaire:</b> {rate} DT/heure", styles["Normal"]))
+    story.append(Spacer(1, 0.2 * inch))
+    
+    story.append(Paragraph("RESUME", heading_style))
+    summary_data = [
+        ["Total heures", f"{total_hours:.1f} h"],
+        ["Total salaire", f"{total_salary:.2f} DT"],
+        ["Nombre de seances", str(len(all_sessions))],
+    ]
+    summary_table = Table(summary_data, colWidths=[2.5 * inch, 2 * inch])
+    summary_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 11),
+        ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor("#0a4f44")),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LINEBELOW", (0, 0), (-1, -1), 0.5, colors.grey),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 0.3 * inch))
+    
+    if start_date and end_date:
+        month_hours = defaultdict(float)
+        month_salary = defaultdict(float)
+        for session in all_sessions:
+            month_key = datetime.strptime(session["date"].strftime("%Y-%m"), "%Y-%m").strftime("%B %Y")
+            month_hours[month_key] += session["duree"]
+        for m, h in month_hours.items():
+            month_salary[m] = h * rate
+        
+        if month_hours:
+            story.append(Paragraph("PAR MOIS", heading_style))
+            month_data = [["Mois", "Heures", "Salaire"]]
+            for m in sorted(month_hours.keys(), key=lambda x: datetime.strptime(x, "%B %Y")):
+                month_name = datetime.strptime(m, "%B %Y").strftime("%B %Y")
+                month_data.append([month_name, f"{month_hours[m]:.1f} h", f"{month_salary[m]:.2f} DT"])
+            month_table = Table(month_data, colWidths=[2.5 * inch, 1.5 * inch, 1.5 * inch])
+            month_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e8f5e9")),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]))
+            story.append(month_table)
+            story.append(Spacer(1, 0.3 * inch))
+    
+    story.append(Paragraph("DETAIL DES SEANCES", heading_style))
+    
+    session_data = [["Formation", "Date", "Heure", "Duree", "Salaire"]]
+    formation_colors = {
+        "dev web": colors.HexColor("#e3f2fd"),
+        "Python": colors.HexColor("#e8f5e9"),
+    }
+    for i, s in enumerate(all_sessions):
+        formation = s["formation"]
+        bg_color = formation_colors.get(formation, colors.white)
+        formation_cell = Paragraph(f"<font color='#0a4f44'><b>{formation}</b></font>", styles["Normal"])
+        session_data.append([
+            formation_cell,
+            s["date"].strftime("%d/%m/%Y"),
+            f"{s['heure_debut']}-{s['heure_fin']}",
+            f"{s['duree']:.2f} h",
+            f"{s['salary']:.2f} DT"
+        ])
+    
+    session_table = Table(session_data, colWidths=[1.3 * inch, 1 * inch, 1 * inch, 0.8 * inch, 1 * inch])
+    
+    style = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0a4f44")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ]
+    
+    for i in range(1, len(all_sessions) + 1):
+        formation = all_sessions[i - 1]["formation"]
+        bg_color = formation_colors.get(formation, colors.white)
+        style.append(("BACKGROUND", (0, i), (0, i), bg_color))
+    
+    session_table.setStyle(TableStyle(style))
+    story.append(session_table)
+    
+    doc.build(story)
+    buffer.seek(0)
+    return send_file(
+        buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"rapport_salaire_{date.today().strftime('%Y%m%d')}.pdf",
     )
 
 
